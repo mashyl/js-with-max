@@ -25,7 +25,7 @@ const sendHttpRequest = function(method, url, data) {
     //         if (xhr.status >= 200 && xhr.status < 300) {
     //             resolve(xhr.response);
     //         } else {
-    //             reject(new Error('Something went wrong'));
+    //             reject(new Error('Something went wrong on the server'));
     //         }
     //     }
 
@@ -34,36 +34,52 @@ const sendHttpRequest = function(method, url, data) {
     //     }
         
     //     xhr.send(JSON.stringify(data));
-    return fetch(url, {
-        method: method,
-        body: JSON.stringify(data)
-    }).then(response => 
-            response.json()
-        )
     // });
     // return promise;
 
-    
+    return fetch(url, {
+        method: method,
+        body: data,
+        // headers: {
+        //     'Content-Type': 'application/json'
+        // }
+    })
+    .then(response => {
+        if(response.status >= 200 && response.status < 300) {
+            return response.json()
+        } else {
+            return response.json().then( errData => {
+                console.log(errData);
+                throw new Error('Something went wrong on the server.')
+            })
+        }
+    })
+    .catch(error => {
+        console.log(error);
+        throw new Error('Failed to send request')
+    });
 }
 
 async function fetchPosts() {
-    // try {
+    try {
         while(postsList.firstChild) {
             postsList.removeChild(postsList.firstChild);
         };
     
-        const respPostList = await sendHttpRequest('GET', 'https://jsonplaceholder.typicode.com/posts');
+        const respPostList = await axios.get('https://jsonplaceholder.typicode.com/posts');
+        const list = respPostList.data
                    
-        for(const post of respPostList) {
+        for(const post of list) {
            const postItem = document.importNode(postTemplate.content, true);
            postItem.querySelector('h2').textContent = post.title.toUpperCase();
            postItem.querySelector('p').textContent = post.body;
            postItem.querySelector('li').id = post.id;
            postsList.appendChild(postItem);
        }
-    // } catch (error) {
-    //     alert(error.message);
-    // }
+    } catch (error) {
+        console.log(error.response);
+        alert(error.message);
+    }
 }
 
 async function createPost(title, content) {
@@ -73,16 +89,24 @@ async function createPost(title, content) {
         body: content,
         userId: id
     };
-    sendHttpRequest('POST', 'https://jsonplaceholder.typicode.com/posts', post);
+
+    const formUserData  = new FormData(form);
+    formUserData.append('userId', id);
+
+    const createPostResponse = await axios.post('https://jsonplaceholder.typicode.com/posts', formUserData);
 }
 
 postsList.addEventListener('click', event => {
     if(event.target.tagName === 'BUTTON') {
         const postId = event.target.closest('li').id;
-        console.log(postId)
-        sendHttpRequest('DELETE', `https://jsonplaceholder.typicode.com/posts/${postId}`);
+        console.log(postId);
+        const deletePostResponse = sendHttpRequest('delete',`https://jsonplaceholder.typicode.com/posts/${postId}`);
+        console.log(deletePostResponse);
+
         // const post = postsList.
         // postsList.removeChild();
 
     }
 })
+
+
